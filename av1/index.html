@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Bootstrap demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+     integrity="sha256-kLaT2GOSpHechhsozzB+flnD+zUyjE2LlfWPgU04xyI="
+     crossorigin=""/>
+    <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"
+    integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM="
+    crossorigin=""></script>
+  </head>
+
+  <body>
+    <div class="container m-5">
+      <h1 class="">Bike Pernambuco</h1>
+
+      <form id="formSearch" action="" class="g-3 my-4" role="form">
+        <div class="row">
+          <div class="form-group col-9">
+            <input id="address" type="text" class="form-control" placeholder="Digite o endereço de busca aqui" required>
+          </div>
+          
+          <div class="col-sm">
+            <div class="form-group row">
+              <span class="col col-md px-2">
+                QTD de bicicletários
+              </span>
+              <select id="selection" class="col col-xs form-select" aria-label="Default select">
+                <option value="5">5</option>
+                <option value="8">8</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div class="my-3">
+          <div class="btn bg-primary">
+            <div class="spinner-border text-light" role="status">
+            </div>
+            <span class="sr-only text-light">Carregando...</span>
+          </div>
+          <button type="submit" class="btn btn-primary" onclick="searchAllBikes()">
+            Buscar
+          </button>
+        </div>
+      </form>
+
+      <div class="container row">
+        <ul id="bikeOptions" class="col">
+          
+        </ul>
+        <div id="map" style="height: 340px; width: 500px;" class="col">
+        </div>
+      </div>
+    </div>
+
+
+    <script>
+      const baseURL = 'http://dados.recife.pe.gov.br/api/3/action/datastore_search'
+      const resourceID = 'e6e4ac72-ff15-4c5a-b149-a1943386c031'
+      const addressArray = []
+
+      const userInput = document.getElementById('address')
+      const selectInput = document.getElementById('selection')
+
+      const userLat = -8.047203
+      const userLon = -34.868808
+
+      let bikesIcon = L.icon({
+        iconUrl: '../icons/bike.png',
+        iconSize: [35, 35]
+      })
+
+      let map = L.map('map').setView([-8.055182, -34.891062], 13)
+
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 27,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(map);
+
+      L.marker([userLat, userLon]).addTo(map);
+
+      /*
+      const getUserInput = async () => {
+        console.log(userInput.value)
+        console.log(selectInput.value)
+        const response = await fetch(`${baseURL}?q=${userInput.value}&resource_id=${resourceID}`)
+        const bikeUser = await response.json()
+        console.log(bikeUser.result)
+        return bikeUser.result
+      }
+      */
+
+      const searchAllBikes = async () => {
+        addressArray.length = 0
+        const getAPI = await fetch(`${baseURL}?resource_id=${resourceID}`)
+        const apiResponse = await getAPI.json()
+        const allBikesData = apiResponse.result.records
+
+        for (let i=0; i < allBikesData.length; i++) {
+          const bikeLocation = allBikesData[i].nome
+          const bikeLat = allBikesData[i].latitude
+          const bikeLon = allBikesData[i].longitude
+          
+          const distance = calculateDistance(userLat, userLon, bikeLat, bikeLon)
+          
+          addressArray.push([distance, bikeLocation, bikeLat, bikeLon])
+        }
+
+        addressArray.sort(sortDistance)
+
+        for (let i=0; i < selectInput.value; i++) {
+          const bikeLat = addressArray[i][2]
+          const bikeLon = addressArray[i][3]
+
+          L.marker([bikeLat, bikeLon], {icon: bikesIcon}).addTo(map)
+ 
+        }
+        printOptions(addressArray)
+      }
+
+      const printOptions = (addressArray) => {
+        document.getElementById('bikeOptions').innerHTML = ''
+
+        for (let i=0; i <= selectInput.value - 1; i++){
+          document.getElementById('bikeOptions').innerHTML += (
+            '<li>' +
+              'Localização da bike: ' + addressArray[i][1].replace(/[0-9-]/g, '') +
+              ' | Distância: ' + addressArray[i][0] + ' Km' +
+            '</li>'
+          )
+        }
+      }
+
+      
+      const sortDistance = (a, b) => {
+        return (a[0] - b[0])
+      }
+
+      const calculateDistance = (lat1,lon1,lat2,lon2) => {
+        let R = 6371; // Radius of the earth in km
+        let dLat = deg2rad(lat2-lat1);  // deg2rad below
+        let dLon = deg2rad(lon2-lon1); 
+        let a = 
+          Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+          Math.sin(dLon/2) * Math.sin(dLon/2)
+          ; 
+        let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        let d = R * c; // Distance in km
+        return d.toFixed(2);
+      }
+
+      const deg2rad = (deg) => {
+        return deg * (Math.PI/180)
+      }
+
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous">
+    </script>
+  </body>
+</html>
