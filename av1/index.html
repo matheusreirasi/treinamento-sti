@@ -21,7 +21,7 @@
       <form id="formSearch" action="" class="g-3 my-4" role="form">
         <div class="row">
           <div class="form-group col-9">
-            <input id="address" type="text" class="form-control" placeholder="Digite o endereço de busca aqui" required>
+            <input id="address" type="text" class="form-control" placeholder="Digite o endereço de busca aqui" onchange="updateInput()" required>
           </div>
           
           <div class="col-sm">
@@ -39,12 +39,12 @@
         </div>
         
         <div class="my-3">
-          <div class="btn bg-primary">
+          <div id="loader" class="btn bg-primary">
             <div class="spinner-border text-light" role="status">
             </div>
             <span class="sr-only text-light">Carregando...</span>
           </div>
-          <button type="submit" class="btn btn-primary" onclick="searchAllBikes()">
+          <button id="button" type="button" class="btn btn-primary py-md-2" disabled onclick="getUserInput()">
             Buscar
           </button>
         </div>
@@ -52,8 +52,8 @@
 
       <div class="container row">
         <ul id="bikeOptions" class="col">
-          
         </ul>
+        
         <div id="map" style="height: 340px; width: 500px;" class="col">
         </div>
       </div>
@@ -63,13 +63,13 @@
     <script>
       const baseURL = 'http://dados.recife.pe.gov.br/api/3/action/datastore_search'
       const resourceID = 'e6e4ac72-ff15-4c5a-b149-a1943386c031'
-      const addressArray = []
 
+
+      const addressBikeArray = []
+      const addressUserArray = []
       const userInput = document.getElementById('address')
       const selectInput = document.getElementById('selection')
-
-      const userLat = -8.047203
-      const userLon = -34.868808
+      const button = document.getElementById('button')
 
       let bikesIcon = L.icon({
         iconUrl: '../icons/bike.png',
@@ -78,26 +78,50 @@
 
       let map = L.map('map').setView([-8.055182, -34.891062], 13)
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 27,
+      const layer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22,
         attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(map);
+      })
+      layer.addTo(map)
 
-      L.marker([userLat, userLon]).addTo(map);
+      let bikeMarker = []
+      let userMarker
 
-      /*
+
       const getUserInput = async () => {
-        console.log(userInput.value)
-        console.log(selectInput.value)
-        const response = await fetch(`${baseURL}?q=${userInput.value}&resource_id=${resourceID}`)
-        const bikeUser = await response.json()
-        console.log(bikeUser.result)
-        return bikeUser.result
-      }
-      */
+        addressUserArray.length = 0 
+        const getApi = await fetch(`${baseURL}?&resource_id=${resourceID}`)
+        const apiResponse = await getApi.json()
+        const bikesLocation = apiResponse.result.records
 
-      const searchAllBikes = async () => {
-        addressArray.length = 0
+        for (let i=0; i < bikesLocation.length; i++) {
+          const lowerCaseBikeLocation = bikesLocation[i].localizacao.replace(/[0-9-.^~ê\s]/g, '').toLowerCase()
+          const lowerCaseUserInput = userInput.value.replace(/[0-9-.^~ê\s]/g, '').toLowerCase()
+          
+          if (lowerCaseBikeLocation.includes(lowerCaseUserInput)) {
+            const userLocation = bikesLocation[i].nome
+            const userLat = bikesLocation[i].latitude
+            const userLon = bikesLocation[i].longitude
+
+            map.setView([userLat, userLon])
+
+            userMarker === undefined
+              ? userMarker = L.marker([userLat, userLon]).addTo(map)
+              : (map.removeLayer(userMarker) , userMarker = L.marker([userLat, userLon]).addTo(map))
+            
+
+            addressUserArray.push({userLocation, userLat, userLon})
+          }
+        }
+        searchAllBikes()
+      }
+
+
+      const searchAllBikes = async (event) => {
+        addressBikeArray.length = 0
+        const userLat = addressUserArray[0].userLat
+        const userLon = addressUserArray[0].userLon
+        
         const getAPI = await fetch(`${baseURL}?resource_id=${resourceID}`)
         const apiResponse = await getAPI.json()
         const allBikesData = apiResponse.result.records
@@ -109,19 +133,25 @@
           
           const distance = calculateDistance(userLat, userLon, bikeLat, bikeLon)
           
-          addressArray.push([distance, bikeLocation, bikeLat, bikeLon])
+          addressBikeArray.push([distance, bikeLocation, bikeLat, bikeLon])
         }
+        addressBikeArray.sort(sortDistance)
 
-        addressArray.sort(sortDistance)
 
         for (let i=0; i < selectInput.value; i++) {
-          const bikeLat = addressArray[i][2]
-          const bikeLon = addressArray[i][3]
+          const bikeLat = addressBikeArray[i][2]
+          const bikeLon = addressBikeArray[i][3]
+          console.log(bikeMarker.length)
+          console.log(bikeMarker[i])
 
-          L.marker([bikeLat, bikeLon], {icon: bikesIcon}).addTo(map)
- 
+          bikeMarker[i] === undefined
+            ? bikeMarker.push(L.marker([bikeLat, bikeLon], {icon: bikesIcon}).addTo(map))
+            :(
+              map.removeLayer(bikeMarker.reverse()[i]),
+              bikeMarker.push(L.marker([bikeLat, bikeLon], {icon: bikesIcon}).addTo(map))
+            )
         }
-        printOptions(addressArray)
+        printOptions(addressBikeArray)
       }
 
       const printOptions = (addressArray) => {
@@ -159,6 +189,23 @@
       const deg2rad = (deg) => {
         return deg * (Math.PI/180)
       }
+
+      const updateInput = () => {
+        userInput.value.length < 7 ? button.disabled = true : button.disabled = false
+      }
+
+
+      userInput.addEventListener('keydown', updateInput)
+      userInput.addEventListener('keyup', updateInput)
+      
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const divLoader = document.getElementById('loader')
+        divLoader.style.display = 'none'
+        
+        const divButton = document.getElementById('button')
+
+        addressBikeArray == undefined ?? (divLoader.style.display = 'block', divButton.style.display = 'none')      })
 
     </script>
     
