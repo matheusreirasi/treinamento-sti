@@ -1,0 +1,13 @@
+1- Aparentemente a API só retorna o endereço se o input for igual a primeira palavra da Localização da bike. Por exemplo "Rua" aparece diversas opções.
+
+2- Talvez seja melhor pegar todos os endereços das bikes e depois percorrer por elas, comparando com o endereço digitado no input, pois usar a query da própria API é muito genérica e retorna ou valores muito abrangentes ou não retorna nada, mesmo digitando uma localização válida.
+
+3- Quando eu ultrapasso o mínimo de letras para pesquisar um local o botão de enviar é habilitado (por padrão é desabilitado), no entanto se eu apago e possuo uma quantidade menor do que o permitido, o botão não é atualizado de volta para bloquear a pesquisa. Isso ocorre porque eu estou pegando somente os cliques de letra e somente é atualizado quando eu adiciono uma nova letra, mesmo depois de ultrapassar o mínimo, apagar algumas letras e depois digitar mais algumas letras.
+
+4- A tarefa que eu esperava ser mais fácil se tornou a mais desafiadora, definitivamente minha maior dificuldade foi atualizar(remover os ponteiros antigos e manter somente os novos) os ponteiros do mapa ao receber novos dados.
+
+5- Eu consigo remover e inserir os locais das bicicletas no mapa, no entanto o array continua subindo sempre que ocorre uma nova pesquisa de local ou alteração da quantidade de bicicletas mostradas.
+
+6- Se eu estou no local Tiradentes aparecem 7 bikes quando eu espero aparecer 5, no entanto quando eu seleciono outras quantidades funciona sem problemas. Em outras localidades funciona sem problema.
+
+7- Quando eu seleciono 5 bikes em bella vista e depois seleciono 10 bikes em Tiradentes todas as bikes de bella vista desaparecem. Se eu seleciono 8 em Tiradentes e depois 10 em bella vista ou outra localidade, 2 bikes ficam em Tiradentes.
